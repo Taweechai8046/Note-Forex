@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>สมุดบันทึกกำไรขาดทุน Forex (TH)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- สำหรับ PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffd700">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="icons/ChatGPT.png">
+
+  <style>
+    :root { color-scheme: light dark; }
+    html { font-family: 'Kanit', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial; }
+    /* Better tap targets on mobile */
+    button, input, select { touch-action: manipulation; }
+    /* Hide arrows on number inputs */
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-40 backdrop-blur bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+      <div class="flex-1 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 grid place-items-center text-emerald-600 dark:text-emerald-400">💹</div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold">สมุดบันทึกกำไรขาดทุน Forex</h1>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">คำนวณ Pips/กำไร ออกรายงาน สรุปผล และกราฟพอร์ต – เก็บข้อมูลบนเบราว์เซอร์ของคุณ</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="themeBtn" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm">โหมดกลางวัน/กลางคืน</button>
+        <button id="exportBtn" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm">ส่งออก CSV</button>
+        <label class="cursor-pointer px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">
+          นำเข้า CSV
+          <input id="importInput" type="file" accept=".csv" class="hidden" />
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Form -->
+    <section class="lg:col-span-1">
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+        <h2 class="font-semibold text-lg mb-3">บันทึกออเดอร์</h2>
+        <form id="tradeForm" class="space-y-3">
+          <input type="hidden" id="editingId" />
+          <div class="grid grid-cols-2 gap-3">
+            <label class="col-span-2">
+              <span class="text-sm">วันที่</span>
+              <input id="date" type="date" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" required />
+            </label>
+            <label>
+              <span class="text-sm">คู่เงิน (เช่น EURUSD)</span>
+              <input id="symbol" type="text" placeholder="EURUSD" class="w-full mt-1 px-3 py-2 rounded-xl uppercase border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" required />
+            </label>
+            <label>
+              <span class="text-sm">ฝั่ง</span>
+              <select id="side" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" required>
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+              </select>
+            </label>
+            <label>
+              <span class="text-sm">ราคาเข้า</span>
+              <input id="entry" type="number" step="0.00001" inputmode="decimal" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" required />
+            </label>
+            <label>
+              <span class="text-sm">ราคาออก</span>
+              <input id="exit" type="number" step="0.00001" inputmode="decimal" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" required />
+            </label>
+            <label>
+              <span class="text-sm">ขนาด (Lots)</span>
+              <input id="lots" type="number" step="0.01" min="0" value="0.10" inputmode="decimal" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" required />
+            </label>
+            <label>
+              <span class="text-sm">ค่าธรรมเนียม/คอมมิชชั่น</span>
+              <input id="fee" type="number" step="0.01" value="0" inputmode="decimal" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" />
+            </label>
+            <label>
+              <span class="text-sm">Pip size</span>
+              <input id="pipSize" type="number" step="0.00001" inputmode="decimal" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" />
+              <p class="text-xs text-slate-500 mt-1">* ระบบจะเดาให้อัตโนมัติจากคู่เงิน (JPY = 0.01, อื่น ๆ = 0.0001) สามารถแก้ได้</p>
+            </label>
+            <label>
+              <span class="text-sm">ค่า Pip ต่อ 1 Standard Lot</span>
+              <input id="pipValue" type="number" step="0.01" value="10" inputmode="decimal" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" />
+              <p class="text-xs text-slate-500 mt-1">โดยทั่วไปคู่ที่อ้างอิง USD ≈ 10 ต่อ pip/lot</p>
+            </label>
+            <label class="col-span-2">
+              <span class="text-sm">หมายเหตุ (ไม่บังคับ)</span>
+              <input id="note" type="text" placeholder="เหตุผลเข้าออเดอร์ / แผน RR / รูปแบบแท่งเทียน" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" />
+            </label>
+          </div>
+          <div class="flex items-center gap-2 pt-2">
+            <button class="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700" type="submit">บันทึก</button>
+            <button id="resetBtn" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800" type="button">ล้างฟอร์ม</button>
+            <button id="demoBtn" class="ml-auto px-3 py-2 rounded-xl bg-slate-700 text-white hover:bg-slate-800 text-xs" type="button">เติมตัวอย่าง</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Settings -->
+      <div class="mt-6 p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+        <h3 class="font-semibold mb-3">ตั้งค่าพอร์ต</h3>
+        <div class="grid grid-cols-2 gap-3">
+          <label>
+            <span class="text-sm">ขนาดพอร์ตเริ่มต้น</span>
+            <input id="accountBalance" type="number" step="0.01" value="10000" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900" />
+          </label>
+          <label class="flex items-end gap-2">
+            <input id="reinvest" type="checkbox" class="w-5 h-5 rounded" checked>
+            <span class="text-sm">ปรับยอดพอร์ตตามกำไร/ขาดทุน (รีอินเวสต์)</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Summary + Chart + Table -->
+    <section class="lg:col-span-2 space-y-6">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+          <div class="text-xs text-slate-500">กำไรสุทธิ</div>
+          <div id="netProfit" class="text-2xl font-bold mt-1">0.00</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+          <div class="text-xs text-slate-500">รวม Pips</div>
+          <div id="totalPips" class="text-2xl font-bold mt-1">0</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+          <div class="text-xs text-slate-500">ชนะ / แพ้</div>
+          <div id="winLoss" class="text-2xl font-bold mt-1">0 / 0</div>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+          <div class="text-xs text-slate-500">Win Rate</div>
+          <div id="winRate" class="text-2xl font-bold mt-1">0%</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-semibold">กราฟพอร์ต (สะสม)</h3>
+          <div class="text-xs text-slate-500">แกน Y: กำไรสะสม | แกน X: เวลา</div>
+        </div>
+        <canvas id="equityChart" height="90"></canvas>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-white dark:bg-slate-800 shadow border border-slate-200 dark:border-slate-700">
+        <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <h3 class="font-semibold">รายการออเดอร์</h3>
+          <div class="flex items-center gap-2">
+            <input id="search" type="text" placeholder="ค้นหา: คู่เงิน / หมายเหตุ" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" />
+            <select id="filterSide" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm">
+              <option value="">ทั้งหมด</option>
+              <option value="BUY">BUY</option>
+              <option value="SELL">SELL</option>
+            </select>
+            <button id="clearAllBtn" class="px-3 py-2 rounded-xl border border-rose-300 text-rose-700 dark:border-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-sm">ลบทั้งหมด</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left bg-slate-100 dark:bg-slate-900/50">
+              <tr>
+                <th class="px-3 py-2">วันที่</th>
+                <th class="px-3 py-2">คู่เงิน</th>
+                <th class="px-3 py-2">ฝั่ง</th>
+                <th class="px-3 py-2">เข้า</th>
+                <th class="px-3 py-2">ออก</th>
+                <th class="px-3 py-2">Lots</th>
+                <th class="px-3 py-2">Pip size</th>
+                <th class="px-3 py-2">Pips</th>
+                <th class="px-3 py-2">Pip/lot</th>
+                <th class="px-3 py-2">ค่าธรรมเนียม</th>
+                <th class="px-3 py-2">กำไรสุทธิ</th>
+                <th class="px-3 py-2">หมายเหตุ</th>
+                <th class="px-3 py-2">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="tbody" class="divide-y divide-slate-200 dark:divide-slate-700"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Simple toast -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 hidden px-4 py-2 rounded-xl bg-slate-900 text-white shadow-lg">บันทึกแล้ว</div>
+
+  <script>
+    // ===== Utilities =====
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
+    const fmt = (n, d=2) => Number(n).toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d});
+    const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+    const storageKey = 'forexJournal.v1';
+
+    const defaultState = {
+      settings: { accountBalance: 10000, reinvest: true, theme: 'auto' },
+      trades: []
+    };
+
+    let state = loadState();
+
+    function loadState(){
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if(!raw) return JSON.parse(JSON.stringify(defaultState));
+        const obj = JSON.parse(raw);
+        // backward compatibility
+        if(!obj.settings) obj.settings = { accountBalance: 10000, reinvest: true, theme: 'auto' };
+        if(!Array.isArray(obj.trades)) obj.trades = [];
+        return obj;
+      } catch(e){
+        console.error(e);
+        return JSON.parse(JSON.stringify(defaultState));
+      }
+    }
+    function saveState(){ localStorage.setItem(storageKey, JSON.stringify(state)); }
+
+    function showToast(text='บันทึกแล้ว'){
+      const t = $('#toast');
+      t.textContent = text;
+      t.classList.remove('hidden');
+      setTimeout(()=> t.classList.add('hidden'), 1600);
+    }
+
+    // Guess pip size from symbol; allow override
+    function guessPipSize(sym){
+      if(!sym) return 0.0001;
+      sym = sym.toUpperCase();
+      if(sym.includes('XAU')) return 0.1; // ทองคำ (ปรับได้ตามโบรกเกอร์)
+      if(sym.includes('XAG')) return 0.01; // เงิน
+      if(sym.includes('JPY')) return 0.01; // คู่เงิน JPY
+      return 0.0001; // ทั่วไป
+    }
+
+    function calcPips({side, entry, exit, pipSize}){
+      const diff = side === 'BUY' ? (exit - entry) : (entry - exit);
+      return diff / pipSize; // เป็นจำนวน pips
+    }
+
+    function calcProfit({pips, lots, pipValue, fee}){
+      const gross = pips * lots * pipValue; // สมมติค่า pip ต่อ 1 lot คงที่ (แก้ได้)
+      const net = gross - fee;
+      return {gross, net};
+    }
+
+    function todayStr(){
+      const tzOffsetMs = new Date().getTimezoneOffset() * 60000;
+      const localISO = new Date(Date.now() - tzOffsetMs).toISOString().slice(0,10);
+      return localISO;
+    }
+
+    // ===== Theme =====
+    function applyTheme(){
+      const pref = state.settings.theme;
+      const m = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const wantDark = pref === 'dark' || (pref === 'auto' && m);
+      document.documentElement.classList.toggle('dark', wantDark);
+    }
+    applyTheme();
+
+    // ===== Form handling =====
+    $('#date').value = todayStr();
+    $('#symbol').addEventListener('input', (e)=>{
+      const sym = e.target.value.toUpperCase();
+      const guessed = guessPipSize(sym);
+      if(!$('#pipSize').value) $('#pipSize').value = guessed;
+    });
+    $('#resetBtn').addEventListener('click', ()=>{
+      $('#editingId').value = '';
+      $('#tradeForm').reset();
+      $('#date').value = todayStr();
+      $('#lots').value = 0.10;
+      $('#pipValue').value = 10;
+      $('#fee').value = 0;
+    });
+
+    $('#tradeForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const id = $('#editingId').value || uid();
+      const rec = {
+        id,
+        date: $('#date').value,
+        symbol: $('#symbol').value.toUpperCase().trim(),
+        side: $('#side').value,
+        entry: Number($('#entry').value),
+        exit: Number($('#exit').value),
+        lots: Number($('#lots').value),
+        fee: Number($('#fee').value||0),
+        pipSize: Number($('#pipSize').value || guessPipSize($('#symbol').value)),
+        pipValue: Number($('#pipValue').value||10),
+        note: $('#note').value.trim()
+      };
+      rec.pips = calcPips(rec);
+      const {net} = calcProfit(rec);
+      rec.net = Number(net.toFixed(2));
+
+      const idx = state.trades.findIndex(t=>t.id===id);
+      if(idx>=0) state.trades[idx] = rec; else state.trades.push(rec);
+
+      // keep sorted by date then created id
+      state.trades.sort((a,b)=> (a.date<b.date? -1 : a.date>b.date? 1 : a.id.localeCompare(b.id)) );
+
+      saveState();
+      renderAll();
+      showToast($('#editingId').value ? 'แก้ไขแล้ว' : 'บันทึกแล้ว');
+      $('#resetBtn').click();
+    });
+
+    // ===== Table rendering =====
+    function renderTable(){
+      const tbody = $('#tbody');
+      const q = $('#search').value.trim().toUpperCase();
+      const fs = $('#filterSide').value;
+      tbody.innerHTML = '';
+      const rows = state.trades.filter(t=>{
+        const okSide = fs ? t.side===fs : true;
+        const okQ = q ? (t.symbol.includes(q) || (t.note||'').toUpperCase().includes(q)) : true;
+        return okSide && okQ;
+      });
+      for(const t of rows){
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-900/40';
+        tr.innerHTML = `
+          <td class="px-3 py-2 whitespace-nowrap">${t.date}</td>
+          <td class="px-3 py-2 whitespace-nowrap font-semibold">${t.symbol}</td>
+          <td class="px-3 py-2">${t.side}</td>
+          <td class="px-3 py-2">${fmt(t.entry,5)}</td>
+          <td class="px-3 py-2">${fmt(t.exit,5)}</td>
+          <td class="px-3 py-2">${fmt(t.lots,2)}</td>
+          <td class="px-3 py-2">${t.pipSize}</td>
+          <td class="px-3 py-2 ${t.pips>=0?'text-emerald-600':'text-rose-600'} font-semibold">${fmt(t.pips,1)}</td>
+          <td class="px-3 py-2">${fmt(t.pipValue,2)}</td>
+          <td class="px-3 py-2">${fmt(t.fee,2)}</td>
+          <td class="px-3 py-2 ${t.net>=0?'text-emerald-600':'text-rose-600'} font-bold">${fmt(t.net,2)}</td>
+          <td class="px-3 py-2 max-w-[14rem] truncate" title="${t.note||''}">${t.note||''}</td>
+          <td class="px-3 py-2 whitespace-nowrap">
+            <button class="text-sky-600 hover:underline mr-2" data-act="edit" data-id="${t.id}">แก้ไข</button>
+            <button class="text-rose-600 hover:underline" data-act="del" data-id="${t.id}">ลบ</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    $('#tbody').addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-act]');
+      if(!btn) return;
+      const id = btn.getAttribute('data-id');
+      const act = btn.getAttribute('data-act');
+      const t = state.trades.find(x=>x.id===id);
+      if(!t) return;
+      if(act==='edit'){
+        $('#editingId').value = t.id;
+        $('#date').value = t.date;
+        $('#symbol').value = t.symbol;
+        $('#side').value = t.side;
+        $('#entry').value = t.entry;
+        $('#exit').value = t.exit;
+        $('#lots').value = t.lots;
+        $('#fee').value = t.fee;
+        $('#pipSize').value = t.pipSize;
+        $('#pipValue').value = t.pipValue;
+        $('#note').value = t.note || '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if(act==='del'){
+        if(confirm('ยืนยันการลบออเดอร์นี้?')){
+          state.trades = state.trades.filter(x=>x.id!==id);
+          saveState();
+          renderAll();
+          showToast('ลบแล้ว');
+        }
+      }
+    });
+
+    $('#search').addEventListener('input', renderTable);
+    $('#filterSide').addEventListener('change', renderTable);
+
+    // ===== Summary & Chart =====
+    let chart;
+    function renderSummary(){
+      const n = state.trades.length;
+      let wins=0, losses=0, totalPips=0, net=0;
+      for(const t of state.trades){
+        totalPips += t.pips || 0;
+        net += t.net || 0;
+        if((t.net||0) >= 0) wins++; else losses++;
+      }
+      $('#netProfit').textContent = fmt(net,2);
+      $('#totalPips').textContent = fmt(totalPips,1);
+      $('#winLoss').textContent = `${wins} / ${losses}`;
+      $('#winRate').textContent = n? fmt(wins*100/n,1)+ '%' : '0%';
+    }
+
+    function renderChart(){
+      const labels = [];
+      const data = [];
+      let cum = 0;
+      const sorted = [...state.trades].sort((a,b)=> a.date<b.date? -1 : a.date>b.date? 1 : a.id.localeCompare(b.id));
+      for(const t of sorted){
+        cum += t.net || 0;
+        labels.push(t.date);
+        data.push(Number(cum.toFixed(2)));
+      }
+      const ctx = document.getElementById('equityChart');
+      if(chart){ chart.destroy(); }
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{ label: 'Equity (สะสม)', data, fill: true, tension: 0.25 }] },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { display: false } },
+          scales: { x: { display: true }, y: { display: true } }
+        }
+      });
+    }
+
+    function renderAll(){
+      renderSummary();
+      renderTable();
+      renderChart();
+    }
+
+    // ===== Settings =====
+    $('#accountBalance').value = state.settings.accountBalance;
+    $('#reinvest').checked = !!state.settings.reinvest;
+
+    $('#accountBalance').addEventListener('change', (e)=>{
+      state.settings.accountBalance = Number(e.target.value||0);
+      saveState();
+    });
+    $('#reinvest').addEventListener('change', (e)=>{
+      state.settings.reinvest = e.target.checked;
+      saveState();
+    });
+
+    // ===== Theme toggle =====
+    $('#themeBtn').addEventListener('click', ()=>{
+      const current = state.settings.theme || 'auto';
+      const next = current === 'auto' ? 'dark' : current === 'dark' ? 'light' : 'auto';
+      state.settings.theme = next;
+      saveState();
+      applyTheme();
+      showToast('สลับธีม: ' + (next==='auto' ? 'อัตโนมัติ' : next));
+    });
+
+    // ===== CSV Export / Import =====
+    function toCSV(){
+      const header = ['id','date','symbol','side','entry','exit','lots','fee','pipSize','pipValue','pips','net','note'];
+      const lines = [header.join(',')];
+      for(const t of state.trades){
+        const row = header.map(k=>{
+          let v = t[k];
+          if(v===undefined||v===null) v='';
+          if(typeof v === 'string'){
+            // escape commas/quotes
+            v = '"' + v.replaceAll('"', '""') + '"';
+          }
+          return v;
+        }).join(',');
+        lines.push(row);
+      }
+      return lines.join('\n');
+    }
+    function download(filename, text){
+      const blob = new Blob([text], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      setTimeout(()=> URL.revokeObjectURL(url), 500);
+    }
+
+    $('#exportBtn').addEventListener('click', ()=>{
+      const csv = toCSV();
+      const dt = new Date();
+      const name = `forex-journal_${dt.getFullYear()}-${dt.getMonth()+1}-${dt.getDate()}.csv`;
+      download(name, csv);
+    });
+
+    $('#importInput').addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      if(!confirm('นำเข้าจะเพิ่มรายการต่อท้าย (ไม่ลบของเดิม). ดำเนินการต่อ?')){ e.target.value=''; return; }
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const text = reader.result;
+        const [headerLine, ...rows] = text.split(/\r?\n/).filter(Boolean);
+        const headers = headerLine.split(',').map(h=>h.replace(/\"/g,'"').replace(/^"|"$/g,''));
+        const idx = (k)=> headers.indexOf(k);
+        for(const r of rows){
+          const cols = r.match(/\"([^\"]|\"\")*\"|[^,]+/g) || [];
+          const get = (k)=>{
+            const i = idx(k); if(i<0||i>=cols.length) return '';
+            const raw = cols[i];
+            if(/^".*"$/.test(raw)) return raw.slice(1,-1).replaceAll('""','"');
+            return raw;
+          }
+          const t = {
+            id: get('id') || uid(),
+            date: get('date') || todayStr(),
+            symbol: (get('symbol')||'').toUpperCase(),
+            side: get('side') || 'BUY',
+            entry: Number(get('entry')||0),
+            exit: Number(get('exit')||0),
+            lots: Number(get('lots')||0),
+            fee: Number(get('fee')||0),
+            pipSize: Number(get('pipSize')||0.0001),
+            pipValue: Number(get('pipValue')||10),
+            note: get('note')||''
+          };
+          t.pips = calcPips(t);
+          t.net = calcProfit(t).net;
+          state.trades.push(t);
+        }
+        state.trades.sort((a,b)=> (a.date<b.date? -1 : a.date>b.date? 1 : a.id.localeCompare(b.id)) );
+        saveState();
+        renderAll();
+        showToast('นำเข้าแล้ว');
+        e.target.value='';
+      };
+      reader.readAsText(file);
+    });
+
+    // ===== Danger zone: clear all =====
+    $('#clearAllBtn').addEventListener('click', ()=>{
+      if(state.trades.length===0){ showToast('ยังไม่มีข้อมูล'); return; }
+      if(prompt('พิมพ์คำว่า DELETE เพื่อยืนยันการลบทั้งหมด') === 'DELETE'){
+        state.trades = []; saveState(); renderAll(); showToast('ลบข้อมูลทั้งหมดแล้ว');
+      }
+    });
+
+    // ===== Demo data =====
+    $('#demoBtn').addEventListener('click', ()=>{
+      const demo = [
+        {date: todayStr(), symbol:'EURUSD', side:'BUY', entry:1.0750, exit:1.0785, lots:0.10, fee:0, pipSize:0.0001, pipValue:10, note:'Breakout H1 + EMA20'},
+        {date: todayStr(), symbol:'USDJPY', side:'SELL', entry:157.30, exit:156.90, lots:0.05, fee:0.5, pipSize:0.01, pipValue:9.5, note:'Reject 4H supply'},
+        {date: todayStr(), symbol:'GBPUSD', side:'BUY', entry:1.2800, exit:1.2770, lots:0.10, fee:0, pipSize:0.0001, pipValue:10, note:'Fail – stop out'},
+      ];
+      for(const t of demo){ t.id = uid(); t.pips = calcPips(t); t.net = Number(calcProfit(t).net.toFixed(2)); }
+      state.trades.push(...demo);
+      state.trades.sort((a,b)=> (a.date<b.date? -1 : a.date>b.date? 1 : a.id.localeCompare(b.id)) );
+      saveState(); renderAll(); showToast('เพิ่มตัวอย่างแล้ว');
+    });
+
+    // ===== Init =====
+    // Prefill pip size when focusing symbol first time
+    $('#pipSize').value = '';
+    renderAll();
+  </script>
+</body>
+</html>
